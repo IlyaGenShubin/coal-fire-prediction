@@ -1,46 +1,48 @@
 import pandas as pd
 import numpy as np
-from datetime import timedelta
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import average_precision_score, recall_score
 from catboost import CatBoostClassifier
+import warnings
+warnings.filterwarnings('ignore')
 
-# Загрузка модели и скалера (один раз при старте)
-model_path = "models/catboost_model.cbm"
-model = CatBoostClassifier()
-model.load_model(model_path)
+def train_and_predict_model(df, feature_cols):
+    df = df.dropna(subset=feature_cols + ["цель"])
+    X = df[feature_cols].fillna(method="bfill").fillna(0)
+    y = df["цель"].astype(int)
 
-# Предположим, что вы сохранили scaler как pickle в models/scaler.pkl
-import joblib
-scaler_path = "models/scaler.pkl"
-scaler = joblib.load(scaler_path)
+    if y.sum() == 0:
+        print("Нет пожаров в датасете для обучения.")
+        return None, None, None
 
-def get_last_temp_before_date(temp_df, skl, stk, d):
-    mask = (temp_df["Склад"] == skl) & (temp_df["Штабель"] == stk) & (temp_df["Дата акта"] < d)
-    last = temp_df[mask].sort_values("Дата акта").tail(1)
-    return last["Максимальная температура"].iloc[0] if not last.empty else np.nan
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, stratify=y if len(np.unique(y)) > 1 else None, random_state=42
+    )
 
-def predict_fire_risk(sklad, shtabel, date_str, temp_df, supplies_df, weather_df):
-    date = pd.to_datetime(date_str)
-    
-    # Найдём данные для штабеля на этот день
-    mask = (supplies_df["Склад"] == sklad) & (supplies_df["Штабель"] == shtabel) & (supplies_df["date"] == date)
-    row = supplies_df[mask]
-    
-    if row.empty:
-        return {"risk": "НИЗКИЙ", "probability": 0.0, "message": "Нет данных для прогноза"}
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_val_scaled = scaler.transform(X_val)
 
-    # Признаки
-    weight = row["вес_накоп"].iloc[0]
-    age = (date - row.groupby(["Склад", "Штабель"])["date"].transform("min").iloc[0]).days
-    temp_last = get_last_temp_before_date(temp_df, sklad, shtabel, date)
+    scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
 
-    # Добавим остальные признаки (температура, погода и т.д.)
-    # Это упрощённый пример; в реальности вычисляются тренды, средние и т.д.
-    # Предположим, что у нас есть готовый вектор признаков X
-    # В реальном приложении — стройте X так же, как и при обучении модели
-    X = np.array([[weight, age, temp_last, 0, 0, 0, 0, 0, 0, 0]])  # 10 признаков
-    X_scaled = scaler.transform(X)
+    model = CatBoostClassifier(
+        iterations=200,
+        depth=6,
+        learning_rate=0.05,
+        scale_pos_weight=scale_pos_weight,
+        random_seed=42,
+        verbose=False
+    )
 
-    prob = model.predict_proba(X_scaled)[0, 1]
-    risk = "ВЫСОКИЙ" if prob > 0.5 else "НИЗКИЙ"
-    return {"risk": risk, "probability": prob}
+    model.fit(X_train_scaled, y_train, eval_set=(X_val_scaled, y_val))
+
+    y_pred = model.predict_proba(X_val_scaled)[:, 1]
+    ap = average_precision_score(y_val, y_pred)
+    rec = recall_score(y_val, model.predict(X_val_scaled))
+
+    print(f"\nCatBoost Model:")
+    print(f"Average Precision: {ap:.4f}")
+    print(f"Recall: {rec:.4f}")
+
+    return model, scaler, feature_cols
