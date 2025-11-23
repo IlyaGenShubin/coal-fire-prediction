@@ -6,11 +6,7 @@ class PredictionRequest(BaseModel):
     shtabel: int
     date_str: str
 
-class UploadResponse(BaseModel):
-    message: str
-    filename: str
-
 class PredictionResponse(BaseModel):
     risk: str
-    probability: float
+    probability: Optional[float] = None
     message: Optional[str] = None
