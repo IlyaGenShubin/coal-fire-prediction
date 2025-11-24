@@ -21,25 +21,26 @@ docker-compose up --build
 
 ##
 
-coal-fire-prediction-main/
+coal_fire_prediction/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI сервер
-│   ├── models.py               # DTO (Pydantic)
-│   ├── data_loader.py          # Загрузка и объединение данных
-│   ├── predictor.py            # Прогноз и обучение модели
-│   └── templates/
-│       └── index.html          # HTML страница для UI
+│   ├── main.py                 # точка входа FastAPI
+│   ├── models.py               # Pydantic модели
+│   ├── schemas.py              # схемы запросов/ответов
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── data_loader.py      # загрузка данных
+│   │   └── predictor.py        # прогнозирование
+│   └── utils.py                # вспомогательные функции
+├── data/
+│   ├── fires.csv
+│   ├── supplies.csv
+│   ├── temperature.csv
+│   ├── weather_data_2019.csv
+│   └── weather_data_2020.csv
 ├── models/
-│   └── catboost_model.cbm      # Обученная модель CatBoost (сохранённая)
-├── data/                       # (опционально) для хранения CSV
-│   ├── supplies.csv            # История поставок/отгрузок угля
-│   ├── fires.csv               # Даты самовозгораний
-│   ├── temperature.csv         # Температура в штабелях
-│   ├── weather_data_2019.csv   # Погода 2019 (часовые данные)
-│   ├── weather_data_2020.csv   # Погода 2020 (часовые данные)
-│   └── weather_data_2021.csv   # Погода 2021 (часовые данные)
-├── requirements.txt            # Зависимости Python
-├── Dockerfile                  # Для сборки контейнера
-├── docker-compose.yml          # Для запуска через Docker Compose
-└── README.md                   # Описание проекта
+│   └── model.pkl               # обученная модель CatBoost (сохраняется автоматически)
+├── Dockerfile
+├── requirements.txt
+├── README.md
+└── train_model.py              # скрипт для обучения модели (можно запускать отдельно)
