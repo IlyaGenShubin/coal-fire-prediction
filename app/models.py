@@ -10,3 +10,4 @@ class PredictionResponse(BaseModel):
     risk: str
     probability: Optional[float] = None
     message: Optional[str] = None
+
