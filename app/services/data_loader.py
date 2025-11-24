@@ -1,8 +1,17 @@
 import pandas as pd
 import numpy as np
-from datetime import timedelta
-import warnings
-warnings.filterwarnings('ignore')
+
+def safe_float(x):
+    try:
+        return float(x)
+    except (ValueError, TypeError):
+        return np.nan
+
+def safe_float_weather(x):
+    try:
+        return float(x)
+    except (ValueError, TypeError):
+        return np.nan
 
 def load_supplies():
     sup = pd.read_csv("data/supplies.csv", header=None)
@@ -14,21 +23,19 @@ def load_supplies():
     return sup
 
 def load_fires():
+    # ВАЖНО: fires.csv содержит заголовок!
     fires = pd.read_csv("data/fires.csv")
     fires["Дата составления"] = pd.to_datetime(fires["Дата составления"], errors='coerce')
     return fires[["Склад", "Штабель", "Дата составления"]].rename(columns={"Дата составления": "fire_start"})
 
 def load_temperature():
-    def safe_float(x):
-        try:
-            return float(x)
-        except:
-            return np.nan
     temp = pd.read_csv("data/temperature.csv", header=None)
     if temp.shape[1] >= 7:
         temp.columns = ["Склад", "Штабель", "Марка", "Максимальная температура", "Пикет", "Дата акта", "Смена"]
-    else:
+    elif temp.shape[1] == 6:
         temp.columns = ["Склад", "Штабель", "Марка", "Максимальная температура", "Пикет", "Дата акта"]
+    else:
+        raise ValueError(f"Неподдерживаемое количество столбцов: {temp.shape[1]}")
     temp["Дата акта"] = pd.to_datetime(temp["Дата акта"], errors='coerce')
     temp["Максимальная температура"] = temp["Максимальная температура"].apply(safe_float)
     temp = temp.dropna(subset=["Дата акта", "Максимальная температура"])
@@ -36,11 +43,6 @@ def load_temperature():
     return temp
 
 def load_weather():
-    def safe_float_weather(x):
-        try:
-            return float(x)
-        except:
-            return np.nan
     weather_list = []
     for year in [2019, 2020]:
         try:
@@ -58,8 +60,7 @@ def load_weather():
             continue
     if weather_list:
         weather = pd.concat(weather_list, ignore_index=True)
-        weather["date"] = weather["timestamp"].dt.date
-        weather["date"] = pd.to_datetime(weather["date"])
+        weather["date"] = pd.to_datetime(weather["timestamp"].dt.date)
         return weather.groupby("date").agg({
             "temp_air": "mean",
             "pressure": "mean",
