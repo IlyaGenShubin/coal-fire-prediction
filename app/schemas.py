@@ -1,8 +1,8 @@
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict
 
 class FireRiskRequest(BaseModel):
-    sklad: str
+    sklad: int
     shtabel: int
     date: str  # YYYY-MM-DD
 
